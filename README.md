@@ -43,11 +43,19 @@ Validate that MantisHub can fully replace our self-hosted (on-prem) MantisBT—m
 ---
 
 ## 3. Enterprise Subscription Highlights
-- **Unlimited** seats & storage, 12-month term.  
-- Dedicated container (4 vCPU / 32 GB RAM) with auto-scale.  
-- 99.9 % uptime SLA; 24 × 7 support, 1-hour critical response.  
-- Geo-redundant backups, point-in-time recovery.  
-- Native SAML/OIDC, audit-trail exports, custom branding, white-label plugins.
+
+| Feature / Capacity | What It Provides in Practice | Why We **Need** It (Cost Justification) |
+|--------------------|------------------------------|-----------------------------------------|
+| **Unlimited seats** | Every Leviton dev, QA, PM, Cyber-Sec and vendor can open tickets without extra license requests or reallocations. | Prevents the annual license-juggling cycle and eliminates “seat starvation,” which delays bug reporting (lost productivity > cost difference). |
+| **Unlimited storage** | Attach any file type—large PDFs, log bundles, design assets—without cleanup scripts or quota policing. | Stops engineering time spent pruning old attachments and removes the risk of lost evidence for defect RCA. |
+| **Dedicated container (4 vCPU / 32 GB RAM, auto-scales)** | Guarantees predictable performance even during release crunches and bulk API imports; scales to 8 vCPU / 64 GB automatically. | Replaces ~$15 k hardware refresh every 2-3 years and the admin time to resize VMs when usage spikes. |
+| **99.9 % uptime SLA & 24×7 support (1-hr critical)** | Vendor monitors, patches and rolls back infra; Sev-1 tickets answered within 60 min, any time zone. | Engineering downtime averages \$750/hr (blended). One avoided 4-hour outage/year covers the annual subscription delta. |
+| **Geo-redundant backups, 5-min RPO, 30-day PITR** | Continuous replication across regions; restore any point in last 30 days in < 15 min. | Removes custom backup scripts, off-site storage fees and legal exposure from data loss (penalties > \$10 k/incident). |
+| **Native SAML & OIDC SSO** | One-click login; roles mapped from AD/Okta groups; zero passwords stored in MantisHub. | Slashes help-desk tickets (~\$20 per reset) and eliminates security risk of stale local accounts. |
+| **SOC 2 Type II & GDPR attestation** | Pre-audited controls, encryption-at-rest, access-log retention (1 yr). | Replaces internal audit prep (≈ 40 hrs/yr) and shields against non-compliance fines. |
+| **Audit-trail exports & BI-ready reporting API** | Push issue metrics to Power BI/Tableau in JSON/CSV without direct DB queries. | Saves sprint time otherwise spent writing custom SQL reports; enables real-time KPIs for leadership. |
+| **White-label plugins & branding** | Vendor maintains Leviton-branded dashboards, PDF exports and custom add-ons. | Delivers polished client-facing look without dedicating front-end cycles (≈ \$100/hr design/dev). |
+
 
 ---
 
