@@ -115,12 +115,137 @@ Validate that MantisHub can fully replace our self-hosted (on-prem) MantisBT—m
 
 ---
 
-## 10. Operational Considerations
-- **Backups** – Daily dumps to S3; quarterly restore test.  
-- **Monitoring** – Prometheus metrics, Grafana alerts (CPU > 80 %, DB lag > 100 ms).  
-- **Rollback** – Retain on-prem snapshot 7 days; scripted restore.  
-- **Network Security** – Whitelist corp IPs; WAF rules.  
-- **Training** – Update runbooks; 30-min user orientation; announce cut-over date.
+## 10. Migration Execution & Operational Playbook
+
+
+### 10.1 Pre‑Cutover Checklist
+
+
+| Check | Command / File | Expected Result |
+|-------|----------------|-----------------|
+| **Schema Checksum** | `mysqldump --no-data mantis_db \| sha256sum` on‑prem & cloud | Identical hashes |
+| **Plugin Inventory** | `SELECT plugin_name FROM mantis_plugin_table;` | Matches `plugins_allowlist.txt` |
+| **Attachment Footprint** | `du -sh /mnt/mantis_files` | ≤ S3 quota |
+| **SSO Endpoint** | `curl -I https://cloud/login_saml.php` | HTTP 302 |
+| **API Token** | `curl -H "Authorization:$TOKEN" https://cloud/api/rest/users?page_size=1` | HTTP 200 |
+
+
+---
+
+
+### 10.2 Migration Execution Scripts
+
+
+```bash
+# db_migration.sh — schema then data
+set -euo pipefail
+mysqldump -h onprem -u mantis -p --no-data mantis_db > schema.sql
+mysqldump -h onprem -u mantis -p --single-transaction --skip-triggers          mantis_db > data.sql
+mysql -h cloud -u admin -p cloud_db < schema.sql
+mysql -h cloud -u admin -p cloud_db < data.sql
+```
+
+
+```bash
+# attachment_sync.sh
+aws s3 sync /mnt/mantis_files/ s3://leviton-mantis-attachments/   --storage-class INTELLIGENT_TIERING --exclude "*.tmp"
+```
+
+
+---
+
+
+### 10.3 Post‑Migration Validation
+
+
+| Test | Tool / Step | Pass Criteria |
+|------|-------------|---------------|
+| Issue CRUD | UI create → edit → close | No 500s; workflow states present |
+| 1 GB Attachment | Upload & download | SHA‑256 match; < 60 s each |
+| Email Notify | Status change → inbox | Mail in < 15 s |
+| Slack Webhook | Status change → Slack | JSON payload `ok` |
+| Recurring Task | Wait cron + plugin log | Auto‑issue created |
+
+
+---
+
+
+### 10.4 Backup & Disaster Recovery
+
+
+```bash
+# /etc/cron.d/mantis_backup – 02:00 UTC daily
+0 2 * * * mantis /usr/local/bin/backup_mantis.sh
+```
+
+
+```bash
+# backup_mantis.sh
+set -euo pipefail
+TS=$(date +%F_%H%M)
+mysqldump -u mantis -p'StrongPass' mantis_db | gzip > /tmp/db_$TS.sql.gz
+aws s3 cp /tmp/db_$TS.sql.gz s3://leviton-mantis-backups/
+aws s3 sync /mnt/mantis_files/ s3://leviton-mantis-file-backups/
+```
+
+
+> **Quarterly Restore Drill:** Import latest dump to temp RDS; verify row counts & attachments.
+
+
+---
+
+
+### 10.5 Monitoring & Alerting
+
+
+```yaml
+scrape_configs:
+ - job_name: mantis_cloud
+   static_configs:
+     - targets: ['cloud:9100','cloud-db:9104']
+```
+
+
+```yaml
+groups:
+- name: mantis_alerts
+ rules:
+ - alert: HighCPU
+   expr: 100 - avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 80
+   for: 5m
+```
+
+
+Alertmanager posts to **#infra-alerts** Slack.
+
+
+---
+
+
+### 10.6 Network & Security Hardening
+
+
+- Ingress 443 only from corp CIDRs `203.0.113.0/24`, `198.51.100.0/24`
+- Egress limited to SMTP 25/443 + Slack webhook IPs
+- WAF rule: block uploads > 2 GB, strip exploit patterns
+- Forward audit logs to S3 prefix `audit-logs/`
+
+
+---
+
+
+### 10.7 Change Management & Training
+
+
+- **Runbook Repo:** `github.com/leviton/mantis-docs`
+ - `/runbooks/restore.md`
+ - `/runbooks/upgrade.md`
+- **Cut‑Over Comms:** Slack `#release-alerts` + email `dev@leviton.com`
+- **User Training:** 30‑min Loom walkthrough + live Q&A; link in Confluence
+
+
+
+
 
 ---
 
